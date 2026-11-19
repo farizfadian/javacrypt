@@ -125,7 +125,8 @@ jobs:
         run: |
           reports="$(grep -l '<skipped' target/surefire-reports/*.xml target/failsafe-reports/*.xml 2>/dev/null || true)"
           if [ -n "$reports" ]; then
-            grep -hoE 'testcase name="[^"]+"|<skipped message="[^"]*"' $reports
+            # In these reports, the <testcase> line is the one right before its <skipped> line.
+            grep -h -B1 '<skipped' $reports | grep -oE 'testcase name="[^"]+"|skipped message="[^"]*"'
           else
             echo "nothing skipped"
           fi
@@ -165,11 +166,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Linux and Git Bash on Windows have sha256sum, macOS has shasum.
+          if command -v sha256sum > /dev/null 2>&1; then sha256="sha256sum"; else sha256="shasum -a 256"; fi
           fetch() { # <repository> <tag> <asset>
             dir="$RUNNER_TEMP/$1"
             mkdir -p "$dir"
             gh release download "$2" --repo "farizfadian/$1" --dir "$dir" --pattern "$3" --pattern checksums.txt
-            (cd "$dir" && grep -E "  $3\$" checksums.txt | shasum -a 256 --check -)
+            (cd "$dir" && grep -E "  $3\$" checksums.txt | $sha256 --check -)
             chmod +x "$dir/$3"
           }
           fetch gocrypt "$GOCRYPT_VERSION" "${{ matrix.gocrypt }}"

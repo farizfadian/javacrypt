@@ -1,8 +1,6 @@
 package io.github.farizfadian.javacrypt;
 
-import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 
 /**
@@ -72,15 +70,10 @@ public final class JasyptStrongEncryptor implements StringEncryptor {
     String encryptWithSalt(byte[] salt, String plaintext) {
         Internal.requireValue(plaintext);
         byte[] derived = Kdf.pbkdf2Sha256(password, salt, iterations, KEY_SIZE + BLOCK_SIZE);
-        byte[] input = Internal.utf8(plaintext);
-        try {
-            byte[] ciphertext = Internal.crypt(TRANSFORMATION, Cipher.ENCRYPT_MODE,
-                    Arrays.copyOfRange(derived, 0, KEY_SIZE), new IvParameterSpec(derived, KEY_SIZE, BLOCK_SIZE),
-                    input, 0, input.length);
-            return Internal.encodeBase64(salt, ciphertext);
-        } catch (GeneralSecurityException e) {
-            throw JavaCryptException.unsupported(TRANSFORMATION + " with a 256-bit key", e);
-        }
+        // 48 derived bytes: the AES-256 key, then the IV.
+        byte[] ciphertext = Internal.encrypt(TRANSFORMATION, Arrays.copyOfRange(derived, 0, KEY_SIZE),
+                new IvParameterSpec(derived, KEY_SIZE, BLOCK_SIZE), Internal.utf8(plaintext));
+        return Internal.encodeBase64(salt, ciphertext);
     }
 
     @Override
@@ -93,14 +86,9 @@ public final class JasyptStrongEncryptor implements StringEncryptor {
         }
         byte[] salt = Arrays.copyOfRange(combined, 0, saltSize);
         byte[] derived = Kdf.pbkdf2Sha256(password, salt, iterations, KEY_SIZE + BLOCK_SIZE);
-        try {
-            byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE,
-                    Arrays.copyOfRange(derived, 0, KEY_SIZE), new IvParameterSpec(derived, KEY_SIZE, BLOCK_SIZE),
-                    combined, saltSize, combined.length - saltSize);
-            return Internal.plaintextFromUtf8(plaintext);
-        } catch (GeneralSecurityException e) {
-            throw JavaCryptException.decryptionFailed();
-        }
+        byte[] plaintext = Internal.decrypt(TRANSFORMATION, Arrays.copyOfRange(derived, 0, KEY_SIZE),
+                new IvParameterSpec(derived, KEY_SIZE, BLOCK_SIZE), combined, saltSize, combined.length - saltSize);
+        return Internal.plaintextFromUtf8(plaintext);
     }
 
     /**

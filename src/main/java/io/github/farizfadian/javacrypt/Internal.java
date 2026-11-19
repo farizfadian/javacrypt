@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
+import java.security.ProviderException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Base64;
@@ -286,19 +287,61 @@ final class Internal {
     }
 
     /**
-     * Runs one cipher operation with a fresh {@link Cipher}, which keeps the encryptors thread-safe.
+     * Creates and initializes a fresh {@link Cipher}. A new instance per call keeps the encryptors
+     * thread-safe.
      *
      * @param transformation for example {@code AES/GCM/NoPadding}
      * @param mode {@link Cipher#ENCRYPT_MODE} or {@link Cipher#DECRYPT_MODE}
      * @param key the raw key; its algorithm is the first part of {@code transformation}
      * @param params the IV or GCM parameters
-     * @param input the bytes to process, from {@code offset} for {@code length} bytes
      */
-    static byte[] crypt(String transformation, int mode, byte[] key, AlgorithmParameterSpec params,
-            byte[] input, int offset, int length) throws GeneralSecurityException {
+    private static Cipher cipher(String transformation, int mode, byte[] key, AlgorithmParameterSpec params)
+            throws GeneralSecurityException {
         String algorithm = transformation.substring(0, transformation.indexOf('/'));
         Cipher cipher = Cipher.getInstance(transformation);
         cipher.init(mode, new SecretKeySpec(key, algorithm), params);
-        return cipher.doFinal(input, offset, length);
+        return cipher;
+    }
+
+    private static JavaCryptException unsupported(String transformation, byte[] key, Exception cause) {
+        return JavaCryptException.unsupported(transformation + " with a " + (key.length * 8) + "-bit key", cause);
+    }
+
+    /**
+     * Encrypts {@code input}. Encryption has no reason to fail except that this Java runtime lacks
+     * the algorithm or refuses the key size, which is reported as {@link ErrorCode#UNSUPPORTED}.
+     */
+    static byte[] encrypt(String transformation, byte[] key, AlgorithmParameterSpec params, byte[] input) {
+        try {
+            return cipher(transformation, Cipher.ENCRYPT_MODE, key, params).doFinal(input);
+        } catch (GeneralSecurityException | ProviderException e) {
+            throw unsupported(transformation, key, e);
+        }
+    }
+
+    /**
+     * Decrypts {@code length} bytes of {@code input} starting at {@code offset}.
+     *
+     * <p>Setting up the cipher fails only if the runtime lacks the algorithm or refuses the key
+     * size: {@link ErrorCode#UNSUPPORTED}, with the cause, because nothing about the input has been
+     * looked at yet. Everything after that means this input cannot be decrypted (wrong password,
+     * wrong mode, changed data): {@link ErrorCode#DECRYPTION_FAILED}, deliberately without a cause.
+     *
+     * <p>{@link ProviderException} is caught as well: it is unchecked, and JDK 17 throws it instead
+     * of {@code AEADBadTagException} when a GCM input is shorter than the tag.
+     */
+    static byte[] decrypt(String transformation, byte[] key, AlgorithmParameterSpec params,
+            byte[] input, int offset, int length) {
+        Cipher cipher;
+        try {
+            cipher = cipher(transformation, Cipher.DECRYPT_MODE, key, params);
+        } catch (GeneralSecurityException | ProviderException e) {
+            throw unsupported(transformation, key, e);
+        }
+        try {
+            return cipher.doFinal(input, offset, length);
+        } catch (GeneralSecurityException | ProviderException e) {
+            throw JavaCryptException.decryptionFailed();
+        }
     }
 }

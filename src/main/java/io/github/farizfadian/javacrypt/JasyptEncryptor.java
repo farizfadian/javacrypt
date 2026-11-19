@@ -1,8 +1,6 @@
 package io.github.farizfadian.javacrypt;
 
-import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 
 /**
@@ -68,14 +66,10 @@ public final class JasyptEncryptor implements StringEncryptor {
     String encryptWithSalt(byte[] salt, String plaintext) {
         Internal.requireValue(plaintext);
         byte[] derived = Kdf.pbkdf1Md5(password, salt, iterations);
-        byte[] input = Internal.utf8(plaintext);
-        try {
-            byte[] ciphertext = Internal.crypt(TRANSFORMATION, Cipher.ENCRYPT_MODE, Arrays.copyOfRange(derived, 0, 8),
-                    new IvParameterSpec(derived, 8, 8), input, 0, input.length);
-            return Internal.encodeBase64(salt, ciphertext);
-        } catch (GeneralSecurityException e) {
-            throw JavaCryptException.unsupported(TRANSFORMATION, e);
-        }
+        // MD5 gives 16 bytes: the DES key, then the IV.
+        byte[] ciphertext = Internal.encrypt(TRANSFORMATION, Arrays.copyOfRange(derived, 0, 8),
+                new IvParameterSpec(derived, 8, 8), Internal.utf8(plaintext));
+        return Internal.encodeBase64(salt, ciphertext);
     }
 
     @Override
@@ -88,13 +82,9 @@ public final class JasyptEncryptor implements StringEncryptor {
         }
         byte[] salt = Arrays.copyOfRange(combined, 0, SALT_SIZE);
         byte[] derived = Kdf.pbkdf1Md5(password, salt, iterations);
-        try {
-            byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE, Arrays.copyOfRange(derived, 0, 8),
-                    new IvParameterSpec(derived, 8, 8), combined, SALT_SIZE, combined.length - SALT_SIZE);
-            return Internal.plaintextFromUtf8(plaintext);
-        } catch (GeneralSecurityException e) {
-            throw JavaCryptException.decryptionFailed();
-        }
+        byte[] plaintext = Internal.decrypt(TRANSFORMATION, Arrays.copyOfRange(derived, 0, 8),
+                new IvParameterSpec(derived, 8, 8), combined, SALT_SIZE, combined.length - SALT_SIZE);
+        return Internal.plaintextFromUtf8(plaintext);
     }
 
     /**

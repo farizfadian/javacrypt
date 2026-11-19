@@ -1,8 +1,6 @@
 package io.github.farizfadian.javacrypt;
 
-import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 
 /**
@@ -77,15 +75,10 @@ public final class Encryptor implements StringEncryptor {
     String encryptWithSaltAndNonce(byte[] salt, byte[] nonce, String plaintext) {
         Internal.requireValue(plaintext);
         byte[] key = Kdf.pbkdf2Sha256(password, salt, iterations, keySize);
-        byte[] input = Internal.utf8(plaintext);
-        try {
-            // doFinal returns ciphertext || tag, which is the family layout.
-            byte[] sealed = Internal.crypt(TRANSFORMATION, Cipher.ENCRYPT_MODE, key,
-                    new GCMParameterSpec(TAG_BITS, nonce), input, 0, input.length);
-            return Internal.encodeBase64(salt, nonce, sealed);
-        } catch (GeneralSecurityException e) {
-            throw JavaCryptException.unsupported(TRANSFORMATION + " with a " + (keySize * 8) + "-bit key", e);
-        }
+        // The cipher returns ciphertext || tag, which is the family layout.
+        byte[] sealed = Internal.encrypt(TRANSFORMATION, key, new GCMParameterSpec(TAG_BITS, nonce),
+                Internal.utf8(plaintext));
+        return Internal.encodeBase64(salt, nonce, sealed);
     }
 
     @Override
@@ -99,13 +92,9 @@ public final class Encryptor implements StringEncryptor {
         byte[] nonce = Arrays.copyOfRange(combined, saltSize, saltSize + NONCE_SIZE);
         byte[] key = Kdf.pbkdf2Sha256(password, salt, iterations, keySize);
         int offset = saltSize + NONCE_SIZE;
-        try {
-            byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE, key,
-                    new GCMParameterSpec(TAG_BITS, nonce), combined, offset, combined.length - offset);
-            return Internal.plaintextFromUtf8(plaintext);
-        } catch (GeneralSecurityException e) {
-            throw JavaCryptException.decryptionFailed();
-        }
+        byte[] plaintext = Internal.decrypt(TRANSFORMATION, key, new GCMParameterSpec(TAG_BITS, nonce),
+                combined, offset, combined.length - offset);
+        return Internal.plaintextFromUtf8(plaintext);
     }
 
     /**
