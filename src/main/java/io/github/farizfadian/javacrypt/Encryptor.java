@@ -1,0 +1,160 @@
+package io.github.farizfadian.javacrypt;
+
+import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+
+/**
+ * AES-256-GCM with a key derived by PBKDF2-HMAC-SHA256: the family's default mode.
+ *
+ * <p>This is authenticated encryption: a wrong password or a changed value is always detected.
+ * Every member of the family reads it (GoCrypt, PyCrypt 1.0.1+, NodeCrypt, PHPCrypt, RustCrypt).
+ * <strong>Java Jasypt cannot read it</strong>; use {@link JasyptEncryptor} for values that Jasypt
+ * itself must read.
+ *
+ * <p>Wire format: {@code base64(salt || nonce(12) || ciphertext || tag(16))}.
+ *
+ * <p>Instances are immutable and safe to share between threads.
+ */
+public final class Encryptor implements StringEncryptor {
+
+    /** Default PBKDF2 iteration count. */
+    public static final int DEFAULT_ITERATIONS = 10000;
+
+    /** Default salt size in bytes. */
+    public static final int DEFAULT_SALT_SIZE = 16;
+
+    /** Default key size in bytes (AES-256). */
+    public static final int DEFAULT_KEY_SIZE = 32;
+
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+    private static final int NONCE_SIZE = 12;
+    private static final int TAG_BITS = 128;
+
+    private final byte[] password;
+    private final int iterations;
+    private final int saltSize;
+    private final int keySize;
+
+    /**
+     * Creates an encryptor with the family's default parameters: 10000 iterations, a 16-byte salt
+     * and a 32-byte key.
+     *
+     * @param password the password, encoded as UTF-8
+     */
+    public Encryptor(String password) {
+        this(new Builder(password));
+    }
+
+    Encryptor(Builder builder) {
+        this.password = Internal.utf8(builder.password);
+        this.iterations = builder.iterations;
+        this.saltSize = builder.saltSize;
+        this.keySize = builder.keySize;
+    }
+
+    /**
+     * Starts a builder for non-default parameters. Both sides must use the same values: they are
+     * not stored in the encrypted value.
+     *
+     * @param password the password, encoded as UTF-8
+     * @return a new builder
+     */
+    public static Builder builder(String password) {
+        return new Builder(password);
+    }
+
+    @Override
+    public String encrypt(String plaintext) {
+        return encryptWithSaltAndNonce(Internal.randomBytes(saltSize), Internal.randomBytes(NONCE_SIZE), plaintext);
+    }
+
+    /** The deterministic core, used directly by the golden vector tests. */
+    String encryptWithSaltAndNonce(byte[] salt, byte[] nonce, String plaintext) {
+        byte[] key = Kdf.pbkdf2Sha256(password, salt, iterations, keySize);
+        byte[] input = Internal.utf8(plaintext);
+        try {
+            // doFinal returns ciphertext || tag, which is the family layout.
+            byte[] sealed = Internal.crypt(TRANSFORMATION, Cipher.ENCRYPT_MODE, key,
+                    new GCMParameterSpec(TAG_BITS, nonce), input, 0, input.length);
+            return Internal.encodeBase64(salt, nonce, sealed);
+        } catch (GeneralSecurityException e) {
+            throw JavaCryptException.unsupported(TRANSFORMATION + " with a " + (keySize * 8) + "-bit key", e);
+        }
+    }
+
+    @Override
+    public String decrypt(String encoded) {
+        byte[] combined = Internal.decodeBase64(encoded);
+        if (combined.length < saltSize + NONCE_SIZE) {
+            throw JavaCryptException.decryptionFailed();
+        }
+        byte[] salt = Arrays.copyOfRange(combined, 0, saltSize);
+        byte[] nonce = Arrays.copyOfRange(combined, saltSize, saltSize + NONCE_SIZE);
+        byte[] key = Kdf.pbkdf2Sha256(password, salt, iterations, keySize);
+        int offset = saltSize + NONCE_SIZE;
+        try {
+            byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE, key,
+                    new GCMParameterSpec(TAG_BITS, nonce), combined, offset, combined.length - offset);
+            return Internal.fromUtf8(plaintext);
+        } catch (GeneralSecurityException e) {
+            throw JavaCryptException.decryptionFailed();
+        }
+    }
+
+    /** Builder for an {@link Encryptor} with non-default parameters. */
+    public static final class Builder {
+
+        private final String password;
+        private int iterations = DEFAULT_ITERATIONS;
+        private int saltSize = DEFAULT_SALT_SIZE;
+        private int keySize = DEFAULT_KEY_SIZE;
+
+        Builder(String password) {
+            this.password = password;
+        }
+
+        /**
+         * Sets the PBKDF2 iteration count.
+         *
+         * @param iterations the iteration count, default {@value Encryptor#DEFAULT_ITERATIONS}
+         * @return this builder
+         */
+        public Builder iterations(int iterations) {
+            this.iterations = iterations;
+            return this;
+        }
+
+        /**
+         * Sets the salt size.
+         *
+         * @param saltSize the salt size in bytes, default {@value Encryptor#DEFAULT_SALT_SIZE}
+         * @return this builder
+         */
+        public Builder saltSize(int saltSize) {
+            this.saltSize = saltSize;
+            return this;
+        }
+
+        /**
+         * Sets the AES key size.
+         *
+         * @param keySize 16 (AES-128), 24 (AES-192) or 32 (AES-256, the default)
+         * @return this builder
+         */
+        public Builder keySize(int keySize) {
+            this.keySize = keySize;
+            return this;
+        }
+
+        /**
+         * Creates the encryptor.
+         *
+         * @return a new immutable encryptor
+         */
+        public Encryptor build() {
+            return new Encryptor(this);
+        }
+    }
+}
