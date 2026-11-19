@@ -11,7 +11,18 @@ public class JavaCryptException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * The reason this exception was thrown.
+     *
+     * @serial
+     */
     private final ErrorCode code;
+
+    /**
+     * The key whose value could not be decrypted, or {@code null}.
+     *
+     * @serial
+     */
     private final String key;
 
     /**

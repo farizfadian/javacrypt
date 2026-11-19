@@ -1,0 +1,203 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# JavaCrypt - CI Workflow
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Runs on every push and pull request:
+# 1. lint            - compiler warnings as errors, javadoc without warnings,
+#                      sources and javadoc jars, reproducible build
+# 2. test            - Java 8 / 11 / 17 / 21 / 25 on Linux, Windows and macOS
+# 3. cross-language  - live round trips against the released gocrypt-cli and
+#                      rustcrypt binaries, on all three operating systems
+# 4. audit           - known vulnerabilities in the (test-only) dependencies
+#
+# The jar is always built with JDK 25 to Java 8 bytecode. The test job then
+# runs the tests on the JVM of its matrix cell (surefire's "jvm" option), so
+# what is tested on Java 8 is the bytecode that gets released.
+#
+# An idea from Fariz and made with love by Claude AI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MAVEN_ARGS: --batch-mode --no-transfer-progress
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: Lint (warnings, javadoc, reproducible jar)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+
+      # The release profile adds the sources and javadoc jars; signing is skipped.
+      # Compiler and javadoc warnings fail the build (see pom.xml).
+      - name: Build the jar, the sources jar and the javadoc jar
+        run: ./mvnw -Prelease -Dgpg.skip verify
+
+      - name: Build again and compare (reproducible build)
+        run: |
+          mkdir first-build
+          cp target/javacrypt-*.jar first-build/
+          ./mvnw -Prelease -Dgpg.skip -DskipTests clean verify
+          for jar in first-build/*.jar; do
+            cmp "$jar" "target/$(basename "$jar")"
+          done
+          sha256sum target/javacrypt-*.jar
+
+      - name: Keep the jars of this commit
+        uses: actions/upload-artifact@v7
+        with:
+          name: javacrypt-jars
+          path: target/javacrypt-*.jar
+          if-no-files-found: error
+          retention-days: 30
+
+  test:
+    name: Test (Java ${{ matrix.java }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        java: ['8', '11', '17', '21', '25']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Zulu publishes Java 8 for every runner, including arm64 macOS.
+      - name: Set up Java ${{ matrix.java }} (runs the tests)
+        id: test-jdk
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: ${{ matrix.java }}
+
+      # Installed last, so it is the JAVA_HOME that Maven itself runs on.
+      - name: Set up Java 25 (builds the jar)
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+
+      - name: Build with Java 25, test on Java ${{ matrix.java }}
+        env:
+          TEST_JAVA_HOME: ${{ steps.test-jdk.outputs.path }}
+          # RuntimeVersionTest fails if the tests run on any other major version.
+          JAVACRYPT_EXPECT_JAVA: ${{ matrix.java }}
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            jvm="$TEST_JAVA_HOME\\bin\\java.exe"
+          else
+            jvm="$TEST_JAVA_HOME/bin/java"
+          fi
+          echo "Test JVM: $jvm"
+          "$jvm" -version
+          ./mvnw verify "-Djvm=$jvm"
+
+      - name: Show skipped tests
+        if: always()
+        run: |
+          reports="$(grep -l '<skipped' target/surefire-reports/*.xml target/failsafe-reports/*.xml 2>/dev/null || true)"
+          if [ -n "$reports" ]; then
+            grep -hoE 'testcase name="[^"]+"|<skipped message="[^"]*"' $reports
+          else
+            echo "nothing skipped"
+          fi
+
+  cross-language:
+    name: Cross-language (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            gocrypt: gocrypt-cli-linux-amd64
+            rustcrypt: rustcrypt-linux-amd64
+          - os: windows-latest
+            gocrypt: gocrypt-cli-windows-amd64.exe
+            rustcrypt: rustcrypt-windows-amd64.exe
+          - os: macos-latest
+            gocrypt: gocrypt-cli-darwin-arm64
+            rustcrypt: rustcrypt-darwin-arm64
+    env:
+      # The released versions JavaCrypt is tested against. Raise them when a member publishes a release.
+      GOCRYPT_VERSION: v1.0.0
+      RUSTCRYPT_VERSION: v1.0.0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+
+      - name: Download the released CLIs and check them against checksums.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fetch() { # <repository> <tag> <asset>
+            dir="$RUNNER_TEMP/$1"
+            mkdir -p "$dir"
+            gh release download "$2" --repo "farizfadian/$1" --dir "$dir" --pattern "$3" --pattern checksums.txt
+            (cd "$dir" && grep -E "  $3\$" checksums.txt | shasum -a 256 --check -)
+            chmod +x "$dir/$3"
+          }
+          fetch gocrypt "$GOCRYPT_VERSION" "${{ matrix.gocrypt }}"
+          fetch rustcrypt "$RUSTCRYPT_VERSION" "${{ matrix.rustcrypt }}"
+          echo "GOCRYPT_CLI=$RUNNER_TEMP/gocrypt/${{ matrix.gocrypt }}" >> "$GITHUB_ENV"
+          echo "RUSTCRYPT_CLI=$RUNNER_TEMP/rustcrypt/${{ matrix.rustcrypt }}" >> "$GITHUB_ENV"
+
+      - name: Round trips in all three modes, both directions
+        env:
+          # A missing binary is a failure here, not a skipped test.
+          JAVACRYPT_REQUIRE_CLIS: 'true'
+        run: ./mvnw test -Dtest=CrossLanguageCliTest
+
+  audit:
+    name: Dependency audit (osv-scanner)
+    runs-on: ubuntu-latest
+    env:
+      OSV_SCANNER_VERSION: v2.7.1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # The library itself has no dependencies (an enforcer rule in pom.xml fails
+      # every build otherwise). This scans what the tests use: JUnit, Gson, Jasypt.
+      - name: Install osv-scanner
+        run: go install "github.com/google/osv-scanner/v2/cmd/osv-scanner@$OSV_SCANNER_VERSION"
+
+      - name: Scan pom.xml for known vulnerabilities
+        run: |
+          "$(go env GOPATH)/bin/osv-scanner" --version
+          "$(go env GOPATH)/bin/osv-scanner" scan source --lockfile pom.xml
