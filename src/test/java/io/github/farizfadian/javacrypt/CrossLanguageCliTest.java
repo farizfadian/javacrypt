@@ -91,6 +91,10 @@ class CrossLanguageCliTest {
         passwords.add(Fixtures.load(Fixtures.ASCII).password);
         if (canPassAsArgument(Fixtures.UNICODE_PASSWORD)) {
             passwords.add(Fixtures.UNICODE_PASSWORD);
+        } else if ("true".equalsIgnoreCase(System.getenv("JAVACRYPT_REQUIRE_CLIS"))) {
+            // In CI a green run must mean that the non-ASCII password really was exercised.
+            fail("this JVM cannot pass a non-ASCII argument to a child process (sun.jnu.encoding="
+                    + System.getProperty("sun.jnu.encoding") + "), so the non-ASCII password would be left out");
         }
         return passwords;
     }
