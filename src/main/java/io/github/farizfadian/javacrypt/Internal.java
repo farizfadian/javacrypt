@@ -1,9 +1,14 @@
 package io.github.farizfadian.javacrypt;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
@@ -64,6 +69,50 @@ final class Internal {
             end--;
         }
         return s.substring(start, end);
+    }
+
+    /** Removes every leading and trailing single or double quote, like Go's {@code strings.Trim(v, "\"'")}. */
+    static String trimQuotes(String s) {
+        int start = 0;
+        int end = s.length();
+        while (start < end && isQuote(s.charAt(start))) {
+            start++;
+        }
+        while (end > start && isQuote(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(start, end);
+    }
+
+    private static boolean isQuote(char c) {
+        return c == '"' || c == '\'';
+    }
+
+    /**
+     * Reads a whole text file, strictly: bytes that are not valid in {@code charset} are an error
+     * instead of being replaced. A leading byte order mark is dropped.
+     */
+    static String readText(Path path, Charset charset) {
+        byte[] bytes;
+        try {
+            bytes = Files.readAllBytes(path);
+        } catch (NoSuchFileException e) {
+            throw JavaCryptException.io("failed to read file " + path + ": no such file", e);
+        } catch (IOException e) {
+            throw JavaCryptException.io("failed to read file " + path + ": " + e, e);
+        }
+        String text;
+        try {
+            text = charset.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (CharacterCodingException e) {
+            // The cause is kept, but the message names only the file: content must not leak into logs.
+            throw JavaCryptException.io("failed to read file " + path + ": content is not valid " + charset.name(), e);
+        }
+        return text.startsWith("﻿") ? text.substring(1) : text;
     }
 
     /** Tells whether an already trimmed value has the {@code ENC(...)} wrapper. */
