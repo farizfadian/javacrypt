@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    An example, not a published artifact: it shows how a Quarkus (or any SmallRye Config)
+    application can read ENC(...) values with JavaCrypt. It is built and tested by CI.
+
+    Build the library first, then this example:
+
+      ./mvnw -DskipTests install
+      ./mvnw -f examples/smallrye-config/pom.xml verify
+  -->
+  <groupId>io.github.farizfadian.examples</groupId>
+  <artifactId>javacrypt-smallrye-config-example</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>JavaCrypt example: SmallRye Config interceptor</name>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Not for Maven Central. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.install.skip>true</maven.install.skip>
+
+    <javacrypt.version>1.0.0</javacrypt.version>
+    <!-- The version Quarkus 4.0 ships. Also tested with 3.18.3 (Quarkus 3.x): -Dsmallrye-config.version=3.18.3 -->
+    <smallrye-config.version>4.2.2</smallrye-config.version>
+    <junit.version>5.14.4</junit.version>
+
+    <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
+    <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
+    <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.farizfadian</groupId>
+      <artifactId>javacrypt</artifactId>
+      <version>${javacrypt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.smallrye.config</groupId>
+      <artifactId>smallrye-config</artifactId>
+      <version>${smallrye-config.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>${maven-resources-plugin.version}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven-compiler-plugin.version}</version>
+        <configuration>
+          <showWarnings>true</showWarnings>
+          <failOnWarning>true</failOnWarning>
+          <proc>none</proc>
+          <compilerArgs>
+            <arg>-Xlint:all</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${maven-jar-plugin.version}</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

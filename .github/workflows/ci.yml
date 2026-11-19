@@ -8,7 +8,9 @@
 # 2. test            - Java 8 / 11 / 17 / 21 / 25 on Linux, Windows and macOS
 # 3. cross-language  - live round trips against the released gocrypt-cli and
 #                      rustcrypt binaries, on all three operating systems
-# 4. audit           - known vulnerabilities in the (test-only) dependencies
+# 4. example         - the SmallRye Config (Quarkus) example, against two
+#                      SmallRye Config release lines
+# 5. audit           - known vulnerabilities in the (test-only) dependencies
 #
 # The jar is always built with JDK 25 to Java 8 bytecode. The test job then
 # runs the tests on the JVM of its matrix cell (surefire's "jvm" option), so
@@ -123,10 +125,13 @@ jobs:
       - name: Show skipped tests
         if: always()
         run: |
-          reports="$(grep -l '<skipped' target/surefire-reports/*.xml target/failsafe-reports/*.xml 2>/dev/null || true)"
+          reports="$(grep -l '<skipped' target/surefire-reports/TEST-*.xml target/failsafe-reports/TEST-*.xml 2>/dev/null || true)"
           if [ -n "$reports" ]; then
-            # In these reports, the <testcase> line is the one right before its <skipped> line.
-            grep -h -B1 '<skipped' $reports | grep -oE 'testcase name="[^"]+"|skipped message="[^"]*"'
+            # One line per skipped test: its name and the reason of the failed assumption.
+            awk '
+              /<testcase / { match($0, /name="[^"]+"/); name = substr($0, RSTART + 6, RLENGTH - 7) }
+              /<skipped/   { reason = $0; sub(/.*Assumption failed: /, "", reason); print "SKIPPED " name ": " reason }
+            ' $reports
           else
             echo "nothing skipped"
           fi
@@ -185,6 +190,32 @@ jobs:
           # A missing binary is a failure here, not a skipped test.
           JAVACRYPT_REQUIRE_CLIS: 'true'
         run: ./mvnw test -Dtest=CrossLanguageCliTest
+
+  example:
+    name: Example (SmallRye Config ${{ matrix.smallrye }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 4.2.2 is what Quarkus 4.0 ships, 3.18.3 the last release of the line Quarkus 3.x uses.
+        smallrye: ['4.2.2', '3.18.3']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+
+      # The example is not part of the main build: it needs Java 17, the library Java 8.
+      - name: Install the library into the local repository
+        run: ./mvnw -DskipTests install
+
+      - name: Build and test the example
+        run: ./mvnw -f examples/smallrye-config/pom.xml verify "-Dsmallrye-config.version=${{ matrix.smallrye }}"
 
   audit:
     name: Dependency audit (osv-scanner)
