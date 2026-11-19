@@ -20,6 +20,15 @@ final class Fixtures {
     /** The fixture copied verbatim from RustCrypt: GoCrypt v1.0.0, ASCII password. */
     static final String ASCII = "gocrypt_vectors.json";
 
+    /**
+     * Generated in this repository by {@code scripts/gen-vectors -set unicode}: GoCrypt v1.0.0 with a
+     * password that has Latin-1 letters and a character outside the Basic Multilingual Plane.
+     */
+    static final String UNICODE = "gocrypt_vectors_unicode.json";
+
+    /** The password of {@link #UNICODE}, spelled with escapes so that no editor can damage it. */
+    static final String UNICODE_PASSWORD = "pässwörd-🔐";
+
     private static final Gson GSON = new GsonBuilder()
             .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
             .create();

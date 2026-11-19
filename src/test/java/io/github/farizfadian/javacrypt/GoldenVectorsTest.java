@@ -15,6 +15,7 @@ import io.github.farizfadian.javacrypt.Fixtures.Vector;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -28,7 +29,22 @@ import org.junit.jupiter.params.provider.MethodSource;
 class GoldenVectorsTest {
 
     static Stream<String> fixtures() {
-        return Stream.of(Fixtures.ASCII);
+        return Stream.of(Fixtures.ASCII, Fixtures.UNICODE);
+    }
+
+    @Test
+    void eachFixtureHasThePasswordItWasGeneratedFor() {
+        assertEquals("rustcrypt-test-2026", Fixtures.load(Fixtures.ASCII).password);
+        // Guards against regenerating the second file with an ASCII password, which would
+        // silently remove the only vectors that exercise UTF-8 password bytes.
+        Fixture unicode = Fixtures.load(Fixtures.UNICODE);
+        assertEquals(Fixtures.UNICODE_PASSWORD, unicode.password);
+        assertEquals(15, Fixtures.utf8(unicode.password).length, "2 two-byte letters and 1 four-byte emoji");
+        boolean nonAsciiPlaintext = false;
+        for (Vector v : unicode.vectors) {
+            nonAsciiPlaintext |= !v.plaintext.matches("\\p{ASCII}*");
+        }
+        assertTrue(nonAsciiPlaintext);
     }
 
     private static StringEncryptor encryptorFor(String mode, String password) {

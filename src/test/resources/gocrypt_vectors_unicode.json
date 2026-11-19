@@ -1,0 +1,250 @@
+{
+  "generator": "scripts/gen-vectors/main.go",
+  "gocrypt_module": "github.com/farizfadian/gocrypt v1.0.0",
+  "gocrypt_commit": "52d35d22aef105049d2bef2e4d2f3972fba93d4f",
+  "generated_at": "2026-11-19",
+  "password": "pässwörd-🔐",
+  "vectors": [
+    {
+      "mode": "default",
+      "plaintext": "hello",
+      "encrypted": "ENC(ahI5uOK396qi7uM0kYu4QRcRuk5MgeUBmDbZt1vRvrPV9o4jB+0V0+LU5r5S2RZDTQ==)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "hello",
+      "encrypted": "ENC(9YDRcroTcJZZvB0XJ8mpkg==)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "hello",
+      "encrypted": "ENC(X1pJ7i//ZKMXah8XR+bq2Ch41GTdDaDo3Ijx2DMmGy8=)"
+    },
+    {
+      "mode": "default",
+      "plaintext": "Password123!",
+      "encrypted": "ENC(VYaUbSCPftcokp04I25uS3Ms4ekVY7Lv9onJVDO+m2snZEQv/mb4IBT0HMS6TvNKtjwk/KAqd0E=)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "Password123!",
+      "encrypted": "ENC(2x2qlQKagtDi/1h7uOxVwMZ/zKScIAoP)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "Password123!",
+      "encrypted": "ENC(tqrKBjE/69jsA5sTWIXHcHm1f0GsXSIpZulT/MTajRs=)"
+    },
+    {
+      "mode": "default",
+      "plaintext": "01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "encrypted": "ENC(mqjkl4VXHVX6eYRnFt/IE7y0tEVZcFWDzWgv/hVB3BiCAhptWcnFzAnmMdi/4ttxqymp2xXlrwhFq5d3F+akgW/j9JWKU5jCY18e+0xIs60W/LDfD0jgudRfeW3249YAaz56b0QsI8YIIK5V6JK9TICt510Ut46f60WfBe0Xjep7eiYaAV15Nm+gH/LIyNwS53AwxbasISYzRzccx2bAevDZSnCm5iDPBTBJon3iAF+u5vnqrBLhPpiDg9zm/5r5w+TbnnRRaB1wQEQPBCvw8n8uPQ5afvO1sgLJUHq71WRHZtHIr3dkg9/NdNl4FYB7HvV6CA==)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "encrypted": "ENC(c0w8bMORJgJr5a0rLslCPYW+BUMsEIEZDIAgFcDgfGOtVSqU7+arVwdurN7oMeJfG6ooQmi3LNayfvXyAYwk24Kv9GsKyGUVCEuKWHNgnWp/9VhWLyw5UL0F6JKcxhlBqkxPumez4o2uWE1hiErNpBJ0FQrJ2Ks28guU43SZhnGNb9ZwaYMd+OeZayO2JPpm4kXauSMqe8xFrdZ+1iKyXDyRbSOXUHVkMahPqOjMa+GZ178MEWp0SqkMvqMJA7h3qOyGVlN5P8L62d5yBhHEjdlvnUotP7NK)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "encrypted": "ENC(AcNytRvSPDYIb+33zw4KD169DVFmT4oeUuek1pd6QyviThlZlj56P6ylcIbCNJ+BQQ5EZs/Ru+Je6zci6XhaJX4W0OoOw5zI7aU+VxsNtPtWhnXzc7lep3i3D8iC7yjRUiuJnWmRMFd1CfNiznE4La1nyQ2f/MPllpZjFPmgv3fF8p8NRNoGsLhDIhaFhgtpH+3TACBmccUL9QQRl5xV8ROBIULl/wZY1XlJAK3/HlU3iV7yFLzuolHLU2QSyZtquyfVKcQusSmngoETiqeZeYaig71P/AVh8dr18Zilpjw=)"
+    },
+    {
+      "mode": "default",
+      "plaintext": "Selamat pagi, Fariz 🦀",
+      "encrypted": "ENC(x3PptsI/x4Fhjcana4ji/IyTncuIpkov+Q0CYBkb8PYYDqCRzEw7Gu4Mdk1JCbLaEMGfWLdMo2r8EbzJHsgb5VyC+m0=)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "Selamat pagi, Fariz 🦀",
+      "encrypted": "ENC(RG8+WHFK1FBnppTYFc0W/iKEUE3P+5qU8lVX7flaOtugpRoRegL2bA==)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "Selamat pagi, Fariz 🦀",
+      "encrypted": "ENC(SB7oFg9mP6H6aXkoEvbHucNfDs4wJFDu0WAwtf3yFF7BLbXleYj7iAEg/0krhdCh)"
+    },
+    {
+      "mode": "default",
+      "plaintext": "pässwörd-🔐",
+      "encrypted": "ENC(9Y93K00pf1+kB6jUkSrhEtRAFSZsdvlqLq1R+4t2t6y3fbBFHJ9sf6BsCEc5zUoe0n0GuusxqiPlIM0=)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "pässwörd-🔐",
+      "encrypted": "ENC(0lHVLthYkosq415emXDxTnh9iWtL532h)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "pässwörd-🔐",
+      "encrypted": "ENC(zZDc5OtnSLcBQpMwzt6L5OSuDiMRtZVkwdczyuq9Twk=)"
+    },
+    {
+      "mode": "default",
+      "plaintext": "日本語のテキスト",
+      "encrypted": "ENC(rXv3HGq4vfRjMXZMxtkVcVERIm+4BOqOr/FYOxxC7nhy+rGutcRoTSd8c4ikMkPwFgWZj1CHFx+02nh4vdIxd/BrlX8=)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "日本語のテキスト",
+      "encrypted": "ENC(NBvmRyGFPl6pVkJW8oixHBhaLG/sTeZjIkJzPunB6nvzVGXKJbBnug==)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "日本語のテキスト",
+      "encrypted": "ENC(4sA7Lu1sxpPKmESdP5sLiG6KlAfTqq2k7mgfeq0Ps0Zph6OSNKVTF1zPKgDwgm+j)"
+    },
+    {
+      "mode": "default",
+      "plaintext": "naïve café ☕",
+      "encrypted": "ENC(US5yyEreNvnAtIoE66yth9U8qhtTQTwrbNZWM+tr8T6sNrkIuRu4qfhuklWWjA4rOM9vQW3tY0sMafte)"
+    },
+    {
+      "mode": "jasypt",
+      "plaintext": "naïve café ☕",
+      "encrypted": "ENC(81olEgeD9xiiuJi9kprdjW0Aj8JX+G3u5v0NV3+vUyk=)"
+    },
+    {
+      "mode": "jasypt-strong",
+      "plaintext": "naïve café ☕",
+      "encrypted": "ENC(0bfgOF6tH3camRL1kHaGm0P1/j73+M5yHpLwFelfKfZL8FNT8tb0Idg3gi+ABe/Y)"
+    }
+  ],
+  "fixed": {
+    "pbkdf2_sha256": [
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "iterations": 10000,
+        "len": 32,
+        "out_hex": "4287afff17b4649ff29cac541cb10a583760f7e1d3df70a4d7df7f9f87a6963d"
+      },
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "iterations": 1000,
+        "len": 48,
+        "out_hex": "e0ae9498d6503013e02e240716bf63ff5ca25a6ecbd0ed2630f82e3ec96113d16dbffd0ce5c98cec5358a2621b8e4cfd"
+      },
+      {
+        "salt_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "iterations": 5000,
+        "len": 48,
+        "out_hex": "f742694408dea56883c44b88e949891a5d87f09c4339c74b8f64dd0ef57b4a0c8f10a0a63ed1d2839c1518076dfd687f"
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 1,
+        "len": 16,
+        "out_hex": "052bed3b4d1b96759cdf3ebf779b638e"
+      }
+    ],
+    "pbkdf1_md5": [
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 1,
+        "out_hex": "b4e39d619c0338b0655a27aedd31941e"
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 2,
+        "out_hex": "a193ec4918a69d203c53e49bfcb782e2"
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 1000,
+        "out_hex": "140b21debc2cdf71f24c579f70895390"
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 2000,
+        "out_hex": "47e562ea17c0d648ed47f0155405325b"
+      }
+    ],
+    "aes_gcm": [
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "nonce_hex": "a1a2a3a4a5a6a7a8a9aaabac",
+        "iterations": 10000,
+        "key_size": 32,
+        "plaintext": "hello",
+        "encoded": "AAECAwQFBgcICQoLDA0OD6Gio6SlpqeoqaqrrNLMSAlKi2LCuftQIoCskn10VKPDBw=="
+      },
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "nonce_hex": "a1a2a3a4a5a6a7a8a9aaabac",
+        "iterations": 10000,
+        "key_size": 32,
+        "plaintext": "Selamat pagi, Fariz 🦀",
+        "encoded": "AAECAwQFBgcICQoLDA0OD6Gio6SlpqeoqaqrrOnMSARIHSbsJ7+0BSYrQfYWAum+G6FRoLzgaA3KPPjOUUqLfTFNPzU="
+      },
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "nonce_hex": "a1a2a3a4a5a6a7a8a9aaabac",
+        "iterations": 10000,
+        "key_size": 32,
+        "plaintext": "日本語のテキスト",
+        "encoded": "AAECAwQFBgcICQoLDA0OD6Gio6SlpqeoqaqrrFw+gYO50LpmyT1SwumIgXTmxnAcUt10qNPWlzEG7PhnNPzwP3Uxm/8="
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "nonce_hex": "a1a2a3a4a5a6a7a8a9aaabac",
+        "iterations": 1000,
+        "key_size": 16,
+        "plaintext": "hello",
+        "encoded": "AQIDBAUGBwihoqOkpaanqKmqq6wDdl7PBgQ2BJ5zgiOHAdbGKTzQIZc="
+      }
+    ],
+    "jasypt_des": [
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 1000,
+        "plaintext": "hello",
+        "encoded": "AQIDBAUGBwjcIiXMQw9qsQ=="
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 1000,
+        "plaintext": "Selamat pagi, Fariz 🦀",
+        "encoded": "AQIDBAUGBwgzSIEUJZMzftYe9YCEbDC1yPuSlqKCrB7JRp5tJgrBJQ=="
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 1000,
+        "plaintext": "日本語のテキスト",
+        "encoded": "AQIDBAUGBwicX3yFM/nniOd5wh1YK7BfZX5IuFSnVaPTkUD+yk0BhQ=="
+      },
+      {
+        "salt_hex": "0102030405060708",
+        "iterations": 2000,
+        "plaintext": "12345678",
+        "encoded": "AQIDBAUGBwi4nYekIt3lqRbeT+BXpNjH"
+      }
+    ],
+    "jasypt_strong": [
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "iterations": 1000,
+        "plaintext": "hello",
+        "encoded": "AAECAwQFBgcICQoLDA0ODw7J8cj6QZsPgVDP+l9djy4="
+      },
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "iterations": 1000,
+        "plaintext": "Selamat pagi, Fariz 🦀",
+        "encoded": "AAECAwQFBgcICQoLDA0OD1L1oJWgt+sOdkbhXFzX8FMtN7kl0blG10g9Q9VxcgzI"
+      },
+      {
+        "salt_hex": "000102030405060708090a0b0c0d0e0f",
+        "iterations": 1000,
+        "plaintext": "日本語のテキスト",
+        "encoded": "AAECAwQFBgcICQoLDA0OD0Od5v7Iuoa3matx9aK2acOylPgPR43rddhd4xoE/p4t"
+      },
+      {
+        "salt_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "iterations": 5000,
+        "plaintext": "0123456789abcdef",
+        "encoded": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj/HvrH11kA1VvCSdkPDcO+zb7uX5Jhv/UNLuz/8X4M5dw=="
+      }
+    ]
+  }
+}
