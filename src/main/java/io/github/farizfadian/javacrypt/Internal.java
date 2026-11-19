@@ -8,6 +8,11 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -16,7 +21,122 @@ final class Internal {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /** The family's scan pattern: at least one character, up to the first closing parenthesis. */
+    private static final Pattern ENC_PATTERN = Pattern.compile("ENC\\(([^)]+)\\)");
+
     private Internal() {
+    }
+
+    /**
+     * White space as Go's {@code strings.TrimSpace} and Rust's {@code str::trim} define it (the
+     * Unicode White_Space property). {@link String#trim()} differs: it also drops control characters
+     * and keeps the no-break space.
+     */
+    static boolean isSpace(char c) {
+        switch (c) {
+            case '\t':
+            case '\n':
+            case '\u000b':
+            case '\f':
+            case '\r':
+            case ' ':
+            case '\u0085':
+            case ' ':
+            case ' ':
+            case ' ':
+            case ' ':
+            case ' ':
+            case ' ':
+            case '　':
+                return true;
+            default:
+                return c >= ' ' && c <= ' ';
+        }
+    }
+
+    static String trimSpace(String s) {
+        int start = 0;
+        int end = s.length();
+        while (start < end && isSpace(s.charAt(start))) {
+            start++;
+        }
+        while (end > start && isSpace(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(start, end);
+    }
+
+    /** Tells whether an already trimmed value has the {@code ENC(...)} wrapper. */
+    static boolean isWrapped(String trimmed) {
+        return trimmed.startsWith(JavaCrypt.ENC_PREFIX) && trimmed.endsWith(JavaCrypt.ENC_SUFFIX);
+    }
+
+    /** Trims the value, checks the wrapper and returns what is inside it, which may be empty. */
+    static String unwrap(String value) {
+        if (value == null) {
+            throw JavaCryptException.invalidEncFormat();
+        }
+        String trimmed = trimSpace(value);
+        if (!isWrapped(trimmed)) {
+            throw JavaCryptException.invalidEncFormat();
+        }
+        return trimmed.substring(JavaCrypt.ENC_PREFIX.length(), trimmed.length() - JavaCrypt.ENC_SUFFIX.length());
+    }
+
+    /**
+     * Replaces every {@code ENC(...)} match in {@code input} with its plaintext.
+     *
+     * <p>A match that cannot be decrypted stays as it is and the scan continues. When {@code lossy}
+     * is false, the last such error is thrown once the whole input has been processed (GoCrypt's
+     * behaviour). The text is assembled by hand: {@code Matcher.appendReplacement} would treat
+     * {@code $} and {@code \} in a decrypted value as group references.
+     */
+    static String decryptAll(StringEncryptor encryptor, String input, boolean lossy) {
+        Objects.requireNonNull(input, "input");
+        Matcher matcher = ENC_PATTERN.matcher(input);
+        StringBuilder out = null;
+        JavaCryptException lastError = null;
+        int copied = 0;
+        while (matcher.find()) {
+            if (out == null) {
+                out = new StringBuilder(input.length());
+            }
+            out.append(input, copied, matcher.start());
+            String match = matcher.group();
+            try {
+                out.append(encryptor.decryptPrefixed(match));
+            } catch (JavaCryptException e) {
+                lastError = e;
+                out.append(match);
+            }
+            copied = matcher.end();
+        }
+        if (out == null) {
+            return input;
+        }
+        out.append(input, copied, input.length());
+        if (lastError != null && !lossy) {
+            throw lastError;
+        }
+        return out.toString();
+    }
+
+    /** Decrypts the wrapped values of a map; the first failure aborts and names the key. */
+    static Map<String, String> decryptMap(StringEncryptor encryptor, Map<String, String> map) {
+        Objects.requireNonNull(map, "map");
+        Map<String, String> out = new LinkedHashMap<>(Math.max(16, map.size() * 2));
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            String value = entry.getValue();
+            if (JavaCrypt.isEncrypted(value)) {
+                try {
+                    value = encryptor.decryptPrefixed(value);
+                } catch (JavaCryptException e) {
+                    throw JavaCryptException.keyDecrypt(entry.getKey(), e);
+                }
+            }
+            out.put(entry.getKey(), value);
+        }
+        return out;
     }
 
     static byte[] randomBytes(int length) {
