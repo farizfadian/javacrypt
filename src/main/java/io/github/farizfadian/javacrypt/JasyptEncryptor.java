@@ -30,6 +30,7 @@ public final class JasyptEncryptor implements StringEncryptor {
     public static final int SALT_SIZE = 8;
 
     private static final String TRANSFORMATION = "DES/CBC/PKCS5Padding";
+    private static final int BLOCK_SIZE = 8;
 
     private final byte[] password;
     private final int iterations;
@@ -44,8 +45,8 @@ public final class JasyptEncryptor implements StringEncryptor {
     }
 
     JasyptEncryptor(Builder builder) {
-        this.password = Internal.utf8(builder.password);
-        this.iterations = builder.iterations;
+        this.password = Internal.requirePassword(builder.password);
+        this.iterations = Internal.requireIterations(builder.iterations);
     }
 
     /**
@@ -65,6 +66,7 @@ public final class JasyptEncryptor implements StringEncryptor {
 
     /** The deterministic core, used directly by the golden vector tests. */
     String encryptWithSalt(byte[] salt, String plaintext) {
+        Internal.requireValue(plaintext);
         byte[] derived = Kdf.pbkdf1Md5(password, salt, iterations);
         byte[] input = Internal.utf8(plaintext);
         try {
@@ -78,16 +80,40 @@ public final class JasyptEncryptor implements StringEncryptor {
 
     @Override
     public String decrypt(String encoded) {
+        Internal.requireValue(encoded);
         byte[] combined = Internal.decodeBase64(encoded);
+        // At least the salt and one block, and only whole blocks.
+        if (combined.length < SALT_SIZE + BLOCK_SIZE || (combined.length - SALT_SIZE) % BLOCK_SIZE != 0) {
+            throw JavaCryptException.invalidJasyptData();
+        }
         byte[] salt = Arrays.copyOfRange(combined, 0, SALT_SIZE);
         byte[] derived = Kdf.pbkdf1Md5(password, salt, iterations);
         try {
             byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE, Arrays.copyOfRange(derived, 0, 8),
                     new IvParameterSpec(derived, 8, 8), combined, SALT_SIZE, combined.length - SALT_SIZE);
-            return Internal.fromUtf8(plaintext);
+            return Internal.plaintextFromUtf8(plaintext);
         } catch (GeneralSecurityException e) {
             throw JavaCryptException.decryptionFailed();
         }
+    }
+
+    /**
+     * Describes the parameters. The password is never included.
+     *
+     * @return for example {@code JasyptEncryptor{algorithm=PBEWithMD5AndDES, iterations=1000}}
+     */
+    @Override
+    public String toString() {
+        return "JasyptEncryptor{algorithm=PBEWithMD5AndDES, iterations=" + iterations + "}";
+    }
+
+    /**
+     * Returns the iteration count.
+     *
+     * @return the iteration count
+     */
+    public int getIterations() {
+        return iterations;
     }
 
     /** Builder for a {@link JasyptEncryptor} with a non-default iteration count. */

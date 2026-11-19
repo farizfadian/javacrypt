@@ -48,9 +48,12 @@ public final class Encryptor implements StringEncryptor {
     }
 
     Encryptor(Builder builder) {
-        this.password = Internal.utf8(builder.password);
-        this.iterations = builder.iterations;
-        this.saltSize = builder.saltSize;
+        this.password = Internal.requirePassword(builder.password);
+        this.iterations = Internal.requireIterations(builder.iterations);
+        this.saltSize = Internal.requireSaltSize(builder.saltSize);
+        if (builder.keySize != 16 && builder.keySize != 24 && builder.keySize != 32) {
+            throw JavaCryptException.invalidParameter("key size must be 16, 24 or 32");
+        }
         this.keySize = builder.keySize;
     }
 
@@ -72,6 +75,7 @@ public final class Encryptor implements StringEncryptor {
 
     /** The deterministic core, used directly by the golden vector tests. */
     String encryptWithSaltAndNonce(byte[] salt, byte[] nonce, String plaintext) {
+        Internal.requireValue(plaintext);
         byte[] key = Kdf.pbkdf2Sha256(password, salt, iterations, keySize);
         byte[] input = Internal.utf8(plaintext);
         try {
@@ -86,6 +90,7 @@ public final class Encryptor implements StringEncryptor {
 
     @Override
     public String decrypt(String encoded) {
+        Internal.requireValue(encoded);
         byte[] combined = Internal.decodeBase64(encoded);
         if (combined.length < saltSize + NONCE_SIZE) {
             throw JavaCryptException.decryptionFailed();
@@ -97,10 +102,48 @@ public final class Encryptor implements StringEncryptor {
         try {
             byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE, key,
                     new GCMParameterSpec(TAG_BITS, nonce), combined, offset, combined.length - offset);
-            return Internal.fromUtf8(plaintext);
+            return Internal.plaintextFromUtf8(plaintext);
         } catch (GeneralSecurityException e) {
             throw JavaCryptException.decryptionFailed();
         }
+    }
+
+    /**
+     * Describes the parameters. The password is never included.
+     *
+     * @return for example {@code Encryptor{algorithm=AES-GCM, iterations=10000, saltSize=16, keySize=32}}
+     */
+    @Override
+    public String toString() {
+        return "Encryptor{algorithm=AES-GCM, iterations=" + iterations + ", saltSize=" + saltSize
+                + ", keySize=" + keySize + "}";
+    }
+
+    /**
+     * Returns the PBKDF2 iteration count.
+     *
+     * @return the iteration count
+     */
+    public int getIterations() {
+        return iterations;
+    }
+
+    /**
+     * Returns the salt size.
+     *
+     * @return the salt size in bytes
+     */
+    public int getSaltSize() {
+        return saltSize;
+    }
+
+    /**
+     * Returns the AES key size.
+     *
+     * @return the key size in bytes: 16, 24 or 32
+     */
+    public int getKeySize() {
+        return keySize;
     }
 
     /** Builder for an {@link Encryptor} with non-default parameters. */

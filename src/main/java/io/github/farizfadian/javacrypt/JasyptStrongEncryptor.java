@@ -47,9 +47,9 @@ public final class JasyptStrongEncryptor implements StringEncryptor {
     }
 
     JasyptStrongEncryptor(Builder builder) {
-        this.password = Internal.utf8(builder.password);
-        this.iterations = builder.iterations;
-        this.saltSize = builder.saltSize;
+        this.password = Internal.requirePassword(builder.password);
+        this.iterations = Internal.requireIterations(builder.iterations);
+        this.saltSize = Internal.requireSaltSize(builder.saltSize);
     }
 
     /**
@@ -70,6 +70,7 @@ public final class JasyptStrongEncryptor implements StringEncryptor {
 
     /** The deterministic core, used directly by the golden vector tests. */
     String encryptWithSalt(byte[] salt, String plaintext) {
+        Internal.requireValue(plaintext);
         byte[] derived = Kdf.pbkdf2Sha256(password, salt, iterations, KEY_SIZE + BLOCK_SIZE);
         byte[] input = Internal.utf8(plaintext);
         try {
@@ -84,17 +85,51 @@ public final class JasyptStrongEncryptor implements StringEncryptor {
 
     @Override
     public String decrypt(String encoded) {
+        Internal.requireValue(encoded);
         byte[] combined = Internal.decodeBase64(encoded);
+        // At least the salt and one block, and only whole blocks.
+        if (combined.length < saltSize + BLOCK_SIZE || (combined.length - saltSize) % BLOCK_SIZE != 0) {
+            throw JavaCryptException.invalidJasyptData();
+        }
         byte[] salt = Arrays.copyOfRange(combined, 0, saltSize);
         byte[] derived = Kdf.pbkdf2Sha256(password, salt, iterations, KEY_SIZE + BLOCK_SIZE);
         try {
             byte[] plaintext = Internal.crypt(TRANSFORMATION, Cipher.DECRYPT_MODE,
                     Arrays.copyOfRange(derived, 0, KEY_SIZE), new IvParameterSpec(derived, KEY_SIZE, BLOCK_SIZE),
                     combined, saltSize, combined.length - saltSize);
-            return Internal.fromUtf8(plaintext);
+            return Internal.plaintextFromUtf8(plaintext);
         } catch (GeneralSecurityException e) {
             throw JavaCryptException.decryptionFailed();
         }
+    }
+
+    /**
+     * Describes the parameters. The password is never included.
+     *
+     * @return for example {@code JasyptStrongEncryptor{algorithm=PBKDF2-HMAC-SHA256+AES-256-CBC, iterations=1000, saltSize=16}}
+     */
+    @Override
+    public String toString() {
+        return "JasyptStrongEncryptor{algorithm=PBKDF2-HMAC-SHA256+AES-256-CBC, iterations=" + iterations
+                + ", saltSize=" + saltSize + "}";
+    }
+
+    /**
+     * Returns the PBKDF2 iteration count.
+     *
+     * @return the iteration count
+     */
+    public int getIterations() {
+        return iterations;
+    }
+
+    /**
+     * Returns the salt size.
+     *
+     * @return the salt size in bytes
+     */
+    public int getSaltSize() {
+        return saltSize;
     }
 
     /** Builder for a {@link JasyptStrongEncryptor} with non-default parameters. */
