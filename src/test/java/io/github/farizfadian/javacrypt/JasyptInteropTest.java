@@ -51,14 +51,28 @@ class JasyptInteropTest {
         return "Java " + System.getProperty("java.version") + " (" + System.getProperty("java.vendor") + ")";
     }
 
-    /** True if Jasypt on this JVM can round-trip its own value with the given password. */
-    private static boolean jasyptAccepts(String password) {
+    /**
+     * Why Jasypt on this JVM cannot round-trip its own value with the given password, or
+     * {@code null} if it can. The reason ends up in the test report, so the matrix shows what each
+     * Java version does.
+     */
+    private static String whyJasyptRejects(String password) {
         try {
             StandardPBEStringEncryptor jasypt = jasyptWithDefaults(password);
-            return "probe".equals(jasypt.decrypt(jasypt.encrypt("probe")));
+            return "probe".equals(jasypt.decrypt(jasypt.encrypt("probe"))) ? null : "it does not read its own value";
         } catch (RuntimeException e) {
-            return false;
+            Throwable root = e;
+            while (root.getCause() != null) {
+                root = root.getCause();
+            }
+            return root.getClass().getSimpleName() + ": " + root.getMessage();
         }
+    }
+
+    private static void assumeJasyptAccepts(String password) {
+        String reason = whyJasyptRejects(password);
+        assumeTrue(reason == null,
+                "Jasypt cannot use a non-ASCII password on " + runtime() + " [" + reason + "]; nothing to compare");
     }
 
     // ── PBEWithMD5AndDES: both directions ─────────────────────────────────────
@@ -117,8 +131,7 @@ class JasyptInteropTest {
         // (pinned by the GoCrypt vectors). So: if Jasypt works with this password on this JVM at
         // all, the two must agree; if it does not, there is nothing to compare.
         String password = Fixtures.UNICODE_PASSWORD;
-        assumeTrue(jasyptAccepts(password),
-                "Jasypt cannot use a non-ASCII password on " + runtime() + "; nothing to compare");
+        assumeJasyptAccepts(password);
 
         JasyptEncryptor javacrypt = new JasyptEncryptor(password);
         StandardPBEStringEncryptor jasypt = jasyptWithDefaults(password);
@@ -136,8 +149,7 @@ class JasyptInteropTest {
         String decomposed = "pässword";
         String composed = Normalizer.normalize(decomposed, Normalizer.Form.NFC);
         assertNotEquals(decomposed, composed);
-        assumeTrue(jasyptAccepts(decomposed),
-                "Jasypt cannot use a non-ASCII password on " + runtime() + "; nothing to compare");
+        assumeJasyptAccepts(decomposed);
 
         String fromJasypt = jasyptWithDefaults(decomposed).encrypt("hello");
         assertEquals("hello", new JasyptEncryptor(composed).decrypt(fromJasypt));

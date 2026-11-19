@@ -85,7 +85,10 @@ public final class Encryptor implements StringEncryptor {
     public String decrypt(String encoded) {
         Internal.requireValue(encoded);
         byte[] combined = Internal.decodeBase64(encoded);
-        if (combined.length < saltSize + NONCE_SIZE) {
+        // Anything shorter than salt + nonce + tag cannot be authentic. Checked here, before the key
+        // is derived, rather than left to the provider: JDK 17 answers a missing tag with an
+        // unchecked exception of its own.
+        if (combined.length < saltSize + NONCE_SIZE + TAG_BITS / 8) {
             throw JavaCryptException.decryptionFailed();
         }
         byte[] salt = Arrays.copyOfRange(combined, 0, saltSize);
