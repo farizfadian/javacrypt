@@ -1,0 +1,215 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# JavaCrypt - Release Workflow
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# A release is started by pushing a version tag:
+#
+#   git tag v1.0.0
+#   git push origin v1.0.0
+#
+# This will:
+# 1. check          - the tag equals the POM version, CHANGELOG.md has a dated
+#                     section for it, and the full build with tests passes
+# 2. github-release - create a GitHub Release whose body is that CHANGELOG
+#                     section, with the jar, the sources jar, the javadoc jar
+#                     and checksums.txt
+# 3. publish        - sign everything and upload it to the Maven Central Portal
+#
+# The upload is NOT published automatically (autoPublish is false in pom.xml).
+# It is validated and then waits at
+# https://central.sonatype.com/publishing/deployments for a manual "Publish",
+# or "Drop". A published release can never be removed or replaced.
+#
+# Rehearsal: "Run workflow" (workflow_dispatch) runs the checks and the signing
+# and verifies the signatures, but creates no release and uploads nothing. Use
+# it after setting up or rotating the secrets below.
+#
+# Required repository secrets:
+#   CENTRAL_TOKEN_USERNAME, CENTRAL_TOKEN_PASSWORD   a Central Portal user token
+#   GPG_PRIVATE_KEY, GPG_PASSPHRASE                  the armored signing key
+#
+# An idea from Fariz and made with love by Claude AI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MAVEN_ARGS: --batch-mode --no-transfer-progress
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+
+      - name: Read the POM version
+        id: version
+        run: |
+          version="$(./mvnw --quiet -DforceStdout help:evaluate -Dexpression=project.version)"
+          echo "POM version: $version"
+          # A build problem would land in $version instead of a version number.
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the tag matches the POM version
+        if: github.event_name == 'push'
+        run: |
+          echo "tag=${GITHUB_REF_NAME#v} pom=${{ steps.version.outputs.version }}"
+          test "${GITHUB_REF_NAME#v}" = "${{ steps.version.outputs.version }}"
+
+      - name: Take the release notes from CHANGELOG.md
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            bash scripts/changelog-section.sh "${{ steps.version.outputs.version }}" > release-notes.md
+          else
+            # A rehearsal may run before the section has its date.
+            bash scripts/changelog-section.sh "${{ steps.version.outputs.version }}" > release-notes.md \
+              || echo "(rehearsal: CHANGELOG.md has no dated section for this version yet)" > release-notes.md
+          fi
+          cat release-notes.md
+
+      # Compiler and javadoc warnings fail the build. Signing happens in the publish job.
+      - name: Build, test and package
+        run: ./mvnw -Prelease -Dgpg.skip verify
+
+      - name: Collect the release files
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          mkdir release
+          cp "target/javacrypt-$version.jar" "target/javacrypt-$version-sources.jar" \
+             "target/javacrypt-$version-javadoc.jar" release/
+          (cd release && sha256sum javacrypt-*.jar > checksums.txt && cat checksums.txt)
+          cp release-notes.md release/
+
+      - name: Keep the release files for the next jobs
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-files
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+
+  github-release:
+    name: Create GitHub Release
+    if: github.event_name == 'push'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch the release files
+        uses: actions/download-artifact@v8
+        with:
+          name: release-files
+          path: release
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd release
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "JavaCrypt ${{ needs.check.outputs.version }}" \
+            --notes-file release-notes.md \
+            javacrypt-*.jar checksums.txt
+
+  publish:
+    name: ${{ github.event_name == 'push' && 'Publish to Maven Central' || 'Rehearsal (sign, no upload)' }}
+    # Last on purpose: nothing reaches Maven Central unless everything before it worked.
+    needs: [check, github-release]
+    if: ${{ !cancelled() && needs.check.result == 'success' && (needs.github-release.result == 'success' || needs.github-release.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Writes a settings.xml whose "central" server reads the token from the environment,
+      # and imports the signing key.
+      - name: Set up Java 25, the Central credentials and the signing key
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_TOKEN_USERNAME
+          server-password: CENTRAL_TOKEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Fetch the release files
+        uses: actions/download-artifact@v8
+        with:
+          name: release-files
+          path: release
+
+      - name: Build and sign
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: ./mvnw -Prelease -DskipTests verify
+
+      # The build is reproducible, so the jars signed here must be byte-identical to
+      # the ones the check job tested and the GitHub Release carries.
+      - name: The signed jars are the tested jars
+        run: (cd target && sha256sum --check ../release/checksums.txt)
+
+      - name: The signatures verify
+        run: |
+          for file in target/javacrypt-*.jar target/javacrypt-*.pom; do
+            gpg --verify "$file.asc" "$file"
+          done
+
+      # Central looks the public key up on a keyserver; a missing key is the usual
+      # reason an upload fails validation.
+      - name: The public key is on a keyserver Central uses
+        run: |
+          fingerprint="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ { print $10; exit }')"
+          echo "Signing key: $fingerprint"
+          for server in keyserver.ubuntu.com keys.openpgp.org; do
+            if curl --silent --fail --max-time 30 --output /dev/null \
+                 "https://$server/pks/lookup?op=get&options=mr&search=0x$fingerprint"; then
+              echo "found on $server"
+              exit 0
+            fi
+          done
+          echo "::error::The public key $fingerprint is not on keyserver.ubuntu.com or keys.openpgp.org."
+          exit 1
+
+      - name: Upload to the Central Portal (waits there for a manual Publish)
+        if: github.event_name == 'push'
+        env:
+          CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: ./mvnw -Prelease -DskipTests deploy
+
+      - name: Next step
+        if: github.event_name == 'push'
+        run: |
+          echo "Uploaded and validated. Nothing is public yet."
+          echo "Review and press Publish (or Drop) at https://central.sonatype.com/publishing/deployments"
