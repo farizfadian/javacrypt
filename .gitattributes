@@ -1,0 +1,13 @@
+# Normalise line endings: LF in the repository and in working copies, so the
+# sources, the fixtures and the Maven wrapper are identical on Linux, macOS
+# and Windows.
+* text=auto eol=lf
+
+# Windows command scripts need CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+*.jar binary
+*.png binary
+*.jpg binary
+*.gif binary

@@ -1,0 +1,21 @@
+# Maven build output
+/target/
+/examples/*/target/
+
+# Local scratch
+/dist/
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+nbactions.xml
+nb-configuration.xml
+
+# OS files
+.DS_Store
+Thumbs.db
